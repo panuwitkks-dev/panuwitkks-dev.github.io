@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>แบบจำลองโพรเจกไทล์ (พร้อมแถบประวัติการยิง)</title>
+    <title>แบบจำลองโพรเจกไทล์ (สเกลระยะใกล้)</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -58,7 +58,6 @@
         .btn-clear { background-color: #f44336; color: white; }
         .btn-clear:hover { background-color: #d32f2f; }
 
-        /* โครงสร้างหน้าต่างหลักแบ่งซ้ายขวา */
         .main-wrapper {
             display: flex;
             gap: 20px;
@@ -67,7 +66,7 @@
         }
         
         .canvas-area {
-            flex: 1; /* กินพื้นที่ส่วนใหญ่ */
+            flex: 1;
             display: flex;
             flex-direction: column;
         }
@@ -79,15 +78,14 @@
             width: 100%;
         }
 
-        /* แถบประวัติการยิงด้านขวา */
         .sidebar {
             width: 300px;
             background: white;
             border-radius: 10px;
             padding: 15px;
             box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-            height: 500px; /* สูงเท่ากับ Canvas โดยประมาณ */
-            overflow-y: auto; /* เลื่อนขึ้นลงได้ถ้ายาวเกิน */
+            height: 500px;
+            overflow-y: auto;
             box-sizing: border-box;
         }
         .sidebar h3 {
@@ -99,7 +97,7 @@
         }
         .log-item {
             background-color: #f8f9fa;
-            border-left: 5px solid; /* สีจะถูกเปลี่ยนด้วย JS */
+            border-left: 5px solid;
             padding: 10px;
             margin-bottom: 10px;
             border-radius: 4px;
@@ -107,7 +105,6 @@
             line-height: 1.5;
         }
 
-        /* กล่องวิธีทำด้านล่าง */
         .calculation-box {
             background-color: #e3f2fd;
             border-left: 5px solid #2196F3;
@@ -129,12 +126,12 @@
 </head>
 <body>
 
-    <h1>🚀 แบบจำลองโพรเจกไทล์ (Dashboard Mode)</h1>
+    <h1>🚀 แบบจำลองโพรเจกไทล์</h1>
 
     <div class="top-controls">
         <div class="control-group">
-            <label for="velocity">แรงในการยิง (m/s): <span id="v-val" style="color: #2196F3;">50</span></label>
-            <input type="range" id="velocity" min="1" max="150" value="50" oninput="document.getElementById('v-val').innerText = this.value">
+            <label for="velocity">แรงในการยิง (m/s): <span id="v-val" style="color: #2196F3;">10</span></label>
+            <input type="range" id="velocity" min="1" max="20" value="10" oninput="document.getElementById('v-val').innerText = this.value">
         </div>
         <div class="control-group">
             <label for="angle">องศายิง (องศา): <span id="a-val" style="color: #2196F3;">45</span></label>
@@ -162,8 +159,7 @@
 
         <div class="sidebar">
             <h3>📜 ประวัติการยิง</h3>
-            <div id="historyLog">
-                </div>
+            <div id="historyLog"></div>
         </div>
     </div>
 
@@ -171,11 +167,12 @@
         const canvas = document.getElementById('simCanvas');
         const ctx = canvas.getContext('2d');
         
-        const scale = 2.5; 
+        // ปรับสเกลใหม่: 1 เมตร = 50 พิกเซล
+        const scale = 50; 
         const startX = 50;
         const startY = canvas.height - 50;
         let animationId;
-        let shotCounter = 0; // ตัวนับจำนวนรอบที่ยิง
+        let shotCounter = 0; 
 
         function drawAxes() {
             ctx.beginPath();
@@ -190,14 +187,17 @@
             ctx.fillStyle = "#555";
             ctx.font = "12px Arial";
 
-            for(let m = 50; m <= 400; m += 50) {
+            // ขีดสเกลแกน X ทุกๆ 1 เมตร (สูงสุดประมาณ 20 เมตร)
+            for(let m = 1; m <= 20; m++) {
                 let px = startX + (m * scale);
                 if(px > canvas.width) break;
                 ctx.fillRect(px, startY - 5, 2, 10);
+                // ขยับตัวเลขลงมานิดหน่อยไม่ให้ทับกับขีด
                 ctx.fillText(m + "m", px - 10, startY + 20);
             }
 
-            for(let m = 50; m <= 200; m += 50) {
+            // ขีดสเกลแกน Y ทุกๆ 1 เมตร
+            for(let m = 1; m <= 15; m++) {
                 let py = startY - (m * scale);
                 if(py < 0) break;
                 ctx.fillRect(startX - 5, py, 10, 2);
@@ -215,14 +215,13 @@
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             drawAxes();
             
-            // ซ่อนกล่องคำนวณและรีเซ็ตประวัติฝั่งขวา
             document.getElementById('calcBox').style.display = 'none';
             document.getElementById('historyLog').innerHTML = '';
             shotCounter = 0;
         }
 
         function shoot() {
-            shotCounter++; // เพิ่มตัวนับเมื่อกดยิง
+            shotCounter++; 
 
             const v0 = parseFloat(document.getElementById('velocity').value);
             const angleDeg = parseFloat(document.getElementById('angle').value);
@@ -237,10 +236,10 @@
             const totalT = (2 * v0 * Math.sin(angleRad)) / g;
 
             let t = 0;
-            const dt = 0.05; 
+            // ปรับ dt ให้ละเอียดขึ้นเพื่อให้แอนิเมชันดูสมูทเวลาซูมเข้ามาใกล้ๆ
+            const dt = 0.02; 
             const randomColor = `hsl(${Math.random() * 360}, 100%, 40%)`;
 
-            // ----- เพิ่มข้อมูลลงในแถบประวัติ (Sidebar) ฝั่งขวา -----
             const logContainer = document.getElementById('historyLog');
             const newLog = document.createElement('div');
             newLog.className = 'log-item';
@@ -252,10 +251,8 @@
                 <span style="color: #1565c0;">Sy max: ${maxSy.toFixed(2)} m</span><br>
                 <span style="color: #2e7d32;">เวลา (t): ${totalT.toFixed(2)} s</span>
             `;
-            // ใช้ prepend เพื่อให้ช็อตล่าสุดโผล่ขึ้นด้านบนสุดเสมอ
             logContainer.prepend(newLog); 
 
-            // อัปเดตกล่องแสดงวิธีทำด้านล่าง
             document.getElementById('calcBox').style.display = 'block';
             document.getElementById('calcBox').style.borderLeftColor = randomColor;
             document.getElementById('calcContent').innerHTML = `
@@ -299,11 +296,15 @@
                     const peakX = startX + (maxSx / 2 * scale);
                     const peakY = startY - (maxSy * scale);
                     if (peakY > 10 && peakX < canvas.width) {
-                        ctx.fillText(`Sy: ${maxSy.toFixed(1)}m`, peakX - 30, peakY - 10);
+                        ctx.fillText(`Sy: ${maxSy.toFixed(2)}m`, peakX - 30, peakY - 10);
                     }
 
                     if (canvasX < canvas.width) {
-                        ctx.fillText(`Sx: ${maxSx.toFixed(1)}m | t: ${totalT.toFixed(1)}s`, canvasX + 5, startY - 10);
+                        // เพิ่มเงาให้ข้อความอ่านง่ายขึ้นเมื่อเส้นทับกัน
+                        ctx.shadowColor = "white";
+                        ctx.shadowBlur = 4;
+                        ctx.fillText(`Sx: ${maxSx.toFixed(2)}m | t: ${totalT.toFixed(2)}s`, canvasX + 5, startY - 10);
+                        ctx.shadowBlur = 0; // ล้างเงาออก
                     }
                 }
             }
