@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>แบบจำลองโพรเจกไทล์ (พร้อมแถบประวัติการยิง)</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            margin: 0;
+        }
+        h1 { color: #333; margin-bottom: 20px; }
+        
+        .top-controls {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-bottom: 20px;
+            width: 100%;
+            max-width: 1200px;
+            box-sizing: border-box;
+        }
+        
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            width: 200px;
+        }
+        label { font-weight: bold; margin-bottom: 8px; color: #555; }
+        input[type="range"] { width: 100%; }
+        
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            align-items: flex-end;
+        }
+        button {
+            padding: 10px 20px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            font-weight: bold;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        .btn-shoot { background-color: #4CAF50; color: white; }
+        .btn-shoot:hover { background-color: #45a049; }
+        .btn-clear { background-color: #f44336; color: white; }
+        .btn-clear:hover { background-color: #d32f2f; }
+
+        /* โครงสร้างหน้าต่างหลักแบ่งซ้ายขวา */
+        .main-wrapper {
+            display: flex;
+            gap: 20px;
+            width: 100%;
+            max-width: 1200px;
+        }
+        
+        .canvas-area {
+            flex: 1; /* กินพื้นที่ส่วนใหญ่ */
+            display: flex;
+            flex-direction: column;
+        }
+        
+        canvas {
+            border: 1px solid #ccc;
+            background-color: #e9ecef;
+            border-radius: 5px;
+            width: 100%;
+        }
+
+        /* แถบประวัติการยิงด้านขวา */
+        .sidebar {
+            width: 300px;
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            height: 500px; /* สูงเท่ากับ Canvas โดยประมาณ */
+            overflow-y: auto; /* เลื่อนขึ้นลงได้ถ้ายาวเกิน */
+            box-sizing: border-box;
+        }
+        .sidebar h3 {
+            margin-top: 0;
+            color: #333;
+            border-bottom: 2px solid #f0f2f5;
+            padding-bottom: 10px;
+            text-align: center;
+        }
+        .log-item {
+            background-color: #f8f9fa;
+            border-left: 5px solid; /* สีจะถูกเปลี่ยนด้วย JS */
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        /* กล่องวิธีทำด้านล่าง */
+        .calculation-box {
+            background-color: #e3f2fd;
+            border-left: 5px solid #2196F3;
+            padding: 15px 20px;
+            border-radius: 4px;
+            margin-top: 20px;
+            display: none;
+        }
+        .calculation-box h3 { margin-top: 0; color: #0d47a1; }
+        .calc-step { margin-bottom: 15px; line-height: 1.6; }
+        .formula {
+            font-family: 'Courier New', Courier, monospace;
+            background: #fff;
+            padding: 2px 6px;
+            border-radius: 3px;
+            border: 1px solid #bbdefb;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>🚀 แบบจำลองโพรเจกไทล์ (Dashboard Mode)</h1>
+
+    <div class="top-controls">
+        <div class="control-group">
+            <label for="velocity">แรงในการยิง (m/s): <span id="v-val" style="color: #2196F3;">50</span></label>
+            <input type="range" id="velocity" min="1" max="150" value="50" oninput="document.getElementById('v-val').innerText = this.value">
+        </div>
+        <div class="control-group">
+            <label for="angle">องศายิง (องศา): <span id="a-val" style="color: #2196F3;">45</span></label>
+            <input type="range" id="angle" min="0" max="90" value="45" oninput="document.getElementById('a-val').innerText = this.value">
+        </div>
+        <div class="control-group">
+            <label for="gravity">แรง g (m/s²): <span id="g-val" style="color: #2196F3;">9.8</span></label>
+            <input type="range" id="gravity" min="1" max="25" step="0.1" value="9.8" oninput="document.getElementById('g-val').innerText = this.value">
+        </div>
+        <div class="btn-group">
+            <button class="btn-shoot" onclick="shoot()">🔥 ยิงเลย!</button>
+            <button class="btn-clear" onclick="clearCanvas()">🗑️ ล้างหน้าจอ</button>
+        </div>
+    </div>
+
+    <div class="main-wrapper">
+        <div class="canvas-area">
+            <canvas id="simCanvas" width="850" height="500"></canvas>
+            
+            <div class="calculation-box" id="calcBox">
+                <h3>📝 วิธีคำนวณช็อตล่าสุด</h3>
+                <div id="calcContent"></div>
+            </div>
+        </div>
+
+        <div class="sidebar">
+            <h3>📜 ประวัติการยิง</h3>
+            <div id="historyLog">
+                </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        const scale = 2.5; 
+        const startX = 50;
+        const startY = canvas.height - 50;
+        let animationId;
+        let shotCounter = 0; // ตัวนับจำนวนรอบที่ยิง
+
+        function drawAxes() {
+            ctx.beginPath();
+            ctx.strokeStyle = "#888";
+            ctx.lineWidth = 2;
+            ctx.moveTo(startX, startY);
+            ctx.lineTo(canvas.width, startY);
+            ctx.moveTo(startX, startY);
+            ctx.lineTo(startX, 0);
+            ctx.stroke();
+
+            ctx.fillStyle = "#555";
+            ctx.font = "12px Arial";
+
+            for(let m = 50; m <= 400; m += 50) {
+                let px = startX + (m * scale);
+                if(px > canvas.width) break;
+                ctx.fillRect(px, startY - 5, 2, 10);
+                ctx.fillText(m + "m", px - 10, startY + 20);
+            }
+
+            for(let m = 50; m <= 200; m += 50) {
+                let py = startY - (m * scale);
+                if(py < 0) break;
+                ctx.fillRect(startX - 5, py, 10, 2);
+                ctx.fillText(m + "m", startX - 35, py + 5);
+            }
+
+            ctx.beginPath();
+            ctx.arc(startX, startY, 5, 0, Math.PI * 2);
+            ctx.fillStyle = "red";
+            ctx.fill();
+        }
+
+        function clearCanvas() {
+            cancelAnimationFrame(animationId);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawAxes();
+            
+            // ซ่อนกล่องคำนวณและรีเซ็ตประวัติฝั่งขวา
+            document.getElementById('calcBox').style.display = 'none';
+            document.getElementById('historyLog').innerHTML = '';
+            shotCounter = 0;
+        }
+
+        function shoot() {
+            shotCounter++; // เพิ่มตัวนับเมื่อกดยิง
+
+            const v0 = parseFloat(document.getElementById('velocity').value);
+            const angleDeg = parseFloat(document.getElementById('angle').value);
+            const g = parseFloat(document.getElementById('gravity').value);
+
+            const angleRad = angleDeg * (Math.PI / 180);
+            const vx = v0 * Math.cos(angleRad);
+            const vy = v0 * Math.sin(angleRad);
+
+            const maxSx = (v0 * v0 * Math.sin(2 * angleRad)) / g;
+            const maxSy = (vy * vy) / (2 * g);
+            const totalT = (2 * v0 * Math.sin(angleRad)) / g;
+
+            let t = 0;
+            const dt = 0.05; 
+            const randomColor = `hsl(${Math.random() * 360}, 100%, 40%)`;
+
+            // ----- เพิ่มข้อมูลลงในแถบประวัติ (Sidebar) ฝั่งขวา -----
+            const logContainer = document.getElementById('historyLog');
+            const newLog = document.createElement('div');
+            newLog.className = 'log-item';
+            newLog.style.borderLeftColor = randomColor;
+            newLog.innerHTML = `
+                <strong>🎯 รอบที่ ${shotCounter}</strong><br>
+                มุม: <strong>${angleDeg}°</strong> | ความเร็ว: <strong>${v0} m/s</strong><br>
+                <span style="color: #e65100;">Sx max: ${maxSx.toFixed(2)} m</span><br>
+                <span style="color: #1565c0;">Sy max: ${maxSy.toFixed(2)} m</span><br>
+                <span style="color: #2e7d32;">เวลา (t): ${totalT.toFixed(2)} s</span>
+            `;
+            // ใช้ prepend เพื่อให้ช็อตล่าสุดโผล่ขึ้นด้านบนสุดเสมอ
+            logContainer.prepend(newLog); 
+
+            // อัปเดตกล่องแสดงวิธีทำด้านล่าง
+            document.getElementById('calcBox').style.display = 'block';
+            document.getElementById('calcBox').style.borderLeftColor = randomColor;
+            document.getElementById('calcContent').innerHTML = `
+                <div class="calc-step">
+                    <strong>1. คำนวณเวลา (t)</strong><br>
+                    <span class="formula">t = (2 * ${v0} * sin(${angleDeg}°)) / ${g} = <span style="color: #d32f2f;">${totalT.toFixed(2)} s</span></span>
+                </div>
+                <div class="calc-step">
+                    <strong>2. คำนวณระยะ Sx max</strong><br>
+                    <span class="formula">Sx = (${v0}<sup>2</sup> * sin(${2 * angleDeg}°)) / ${g} = <span style="color: #d32f2f;">${maxSx.toFixed(2)} m</span></span>
+                </div>
+            `;
+
+            function animate() {
+                t += dt;
+                
+                const x = vx * t;
+                let y = (vy * t) - (0.5 * g * t * t);
+
+                if (y < 0) y = 0;
+
+                const canvasX = startX + (x * scale);
+                const canvasY = startY - (y * scale);
+
+                ctx.beginPath();
+                ctx.arc(canvasX, canvasY, 2, 0, Math.PI * 2);
+                ctx.fillStyle = randomColor;
+                ctx.fill();
+
+                if (y > 0 && canvasX <= canvas.width) {
+                    animationId = requestAnimationFrame(animate);
+                } else {
+                    ctx.fillStyle = randomColor;
+                    ctx.font = "bold 14px Arial";
+                    
+                    const textDist = 90; 
+                    const angleTextX = startX + (textDist * Math.cos(angleRad));
+                    const angleTextY = startY - (textDist * Math.sin(angleRad)) - 10; 
+                    ctx.fillText(`${angleDeg}°`, angleTextX, angleTextY);
+
+                    const peakX = startX + (maxSx / 2 * scale);
+                    const peakY = startY - (maxSy * scale);
+                    if (peakY > 10 && peakX < canvas.width) {
+                        ctx.fillText(`Sy: ${maxSy.toFixed(1)}m`, peakX - 30, peakY - 10);
+                    }
+
+                    if (canvasX < canvas.width) {
+                        ctx.fillText(`Sx: ${maxSx.toFixed(1)}m | t: ${totalT.toFixed(1)}s`, canvasX + 5, startY - 10);
+                    }
+                }
+            }
+            animate();
+        }
+
+        clearCanvas();
+    </script>
+</body>
+</html>
